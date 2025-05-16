@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+    <title>機材管理ソフト</title>
+</head>
+<body>
+    <!-- タイトル -->
+    <div class="title">
+        <h1 class="no-select">機材管理ソフト</h1>
+    </div>
+
+    <!-- ボタンコンテナ -->
+    <div class="button-container">
+        <!-- 建設機械 -->
+        <div class="button" id="button1" onclick="goToMachineList('construction')">
+            <img src="static/construction_machine_icon.png" alt="建設機械">
+            <p>建設機械</p>
+        </div>
+
+        <!-- 測量器 -->
+        <div class="button" id="button2" onclick="goToMachineList('surveying')">
+            <img src="static/surveying_tool_icon.png" alt="測量器">
+            <p>測量器</p>
+        </div>
+
+        <!-- 部品 -->
+        <div class="button" id="button3" onclick="goToMachineList('parts')">
+            <img src="static/buhin_icon.png" alt="部品">
+            <p>部品</p>
+        </div>
+
+        <!-- その他 -->
+        <div class="button" id="button4" onclick="goToMachineList('other')">
+            <img src="static/setting_icon.png" alt="その他">
+            <p>その他</p>
+        </div>
+    </div>
+
+    <script>
+function goToMachineList(type) {
+    if (type === "surveying") {
+        window.location.href = "/surveying_list";
+    } else {
+        window.location.href = "/machine_list?type=" + type;
+    }
+}
+    </script>
+</body>
+</html>

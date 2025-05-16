@@ -1,0 +1,15 @@
+
+<!doctype html>
+<html>
+<head><title>機材編集</title></head>
+<body>
+    <h1>機材編集</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        {{ form.name.label }} {{ form.name() }}<br>
+        {{ form.location.label }} {{ form.location() }}<br>
+        {{ form.status.label }} {{ form.status() }}<br>
+        {{ form.submit() }}
+    </form>
+</body>
+</html>

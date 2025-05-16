@@ -1,0 +1,89 @@
+/* static/add_machine.css */
+
+body {
+    background-color: #f2f2f2;
+    font-family: "Segoe UI", sans-serif;
+    padding: 2rem;
+}
+
+form {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+    margin: auto;
+}
+
+form input, form select {
+    width: 100%;
+    padding: 0.8rem;
+    margin: 1rem 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+form button {
+    background-color: #007bff;
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+form button:hover {
+    background-color: #0056b3;
+}
+
+.form-buttons {
+  display: flex;
+  justify-content: space-between; /* 左右に分散配置 */
+  margin-top: 1rem;
+  max-width: 600px;  /* フォーム幅に合わせる */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.submit-button,
+.back-button {
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  text-decoration: none;
+  text-align: center;
+  display: inline-block;
+}
+
+/* 登録ボタン */
+.submit-button {
+  background-color: #007bff;
+  color: white;
+}
+
+.submit-button:hover {
+  background-color: #0056b3;
+}
+
+/* 戻るボタン */
+.back-button {
+  background-color: #6c757d;
+  color: white;
+}
+
+.back-button:hover {
+  background-color: #5a6268;
+}
+
+form div {
+    margin-bottom: 12px;
+}
+
+form div > input[type="text"],
+form div > select,
+form div > input[type="date"] {
+    width: 100%;
+    box-sizing: border-box;
+}

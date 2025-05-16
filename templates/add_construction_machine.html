@@ -1,0 +1,89 @@
+
+<body>
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+<div class="title">登録画面</div>
+<form method="POST">
+    <div>
+        <label for="machine_type">機械の種類</label>
+        <select name="machine_type" id="machine_type" onchange="updateManufacturerOptions()">
+            <option value="バックホウ">バックホウ</option>
+            <option value="ブルドーザ">ブルドーザ</option>
+            <option value="ローラ">ローラ</option>
+            <option value="グレーダ">グレーダ</option>
+            <option value="フィニッシャー">フィニッシャー</option>
+        </select>
+    </div>
+    <div>
+        <label for="manufacturer">メーカー</label>
+        <select name="manufacturer" id="manufacturer" required>
+            <!-- JavaScriptで更新される -->
+        </select>
+    </div>
+    <div>
+        <label for="rental_number">レンタル番号</label>
+        <input type="text" name="rental_number" id="rental_number" required>
+        <link rel="stylesheet" href="{{ url_for('static', filename='add_machine.css') }}">
+
+    </div>
+    <div>
+        <label for="location">場所</label>
+        <select name="location" id="location">
+            <option value="本社">本社</option>
+            <option value="東舞鶴">東舞鶴</option>
+            <option value="中丹">中丹</option>
+            <option value="丹後">丹後</option>
+            <option value="高浜">高浜</option>
+            <option value="敦賀">敦賀</option>
+            <option value="中丹西">中丹西</option>
+            <option value="京丹波">京丹波</option>
+            <option value="亀岡">亀岡</option>
+            <option value="京都">京都</option>
+            <option value="峰山">峰山</option>
+        </select>
+
+    </div>
+    <div class="form-buttons">
+        <button type="submit" class="submit-button">登録</button>
+        <a href="{{ url_for('machine_list', type='construction') }}" class="back-button">戻る</a>
+    </div>
+</form>
+
+<script>
+    function updateManufacturerOptions() {
+        const machineType = document.getElementById('machine_type').value;
+        const manufacturerSelect = document.getElementById('manufacturer');
+        let options = [];
+        
+        switch (machineType) {
+            case 'バックホウ':
+                options = ['KOBELCO', 'CAT', 'ヤンマー', '住友'];
+                break;
+            case 'ブルドーザ':
+                options = ['CAT'];
+                break;
+            case 'ローラ':
+                options = ['SAKAI'];
+                break;
+            case 'グレーダ':
+                options = ['ヒドロメック','三菱','Bobcat'];
+                break;
+            case 'フィニッシャー':
+                options = ['住友'];
+                break;
+        }
+
+    manufacturerSelect.innerHTML = '';  // 既存の選択肢をクリア
+    options.forEach(function(option) {
+        const opt = document.createElement('option');
+        opt.value = option;
+        opt.text = option;
+        manufacturerSelect.add(opt);
+    });
+
+    console.log("Manufacturer options updated for machine type: ", machineType);
+}
+
+    // ページが読み込まれたときに初期のメーカーオプションを更新
+    window.onload = updateManufacturerOptions;
+</script>
+</body>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>機械一覧</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='machine_list.css') }}">
+</head>
+<body>
+
+    <!-- タイトルバー -->
+    <header class="header-bar">
+        <div class="left-group">
+            <a href="{{ url_for('index') }}" class="back-button">← 戻る</a>
+            <h1 class="page-title">機械一覧</h1>
+        </div>
+        <div class="right-group">
+            <a href="{{ url_for('index') }}">トップへ</a>
+        </div>
+    </header>
+
+    <h2>
+        <!-- 検索機能の追加 -->
+        <div class="about-container">
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="検索...">
+            </div>
+
+            <!-- CSV出力・印刷ボタンと新規登録ボタンを一緒に横並び -->
+            <div class="action-buttons">
+                <a href="{{ url_for('add_construction_machine') }}" class="add_button">新規登録</a>
+                <button class="csv-button" id="csv-export-btn">CSV出力</button>
+            </div>
+        </div>
+
+    <table id="printable-table">
+        <thead>
+            <tr>
+                <th>機械</th>
+                <th>メーカー</th>
+                <th>レンタル番号</th>
+                <th>場所</th>
+                <th>状態</th>
+                <th>出庫先</th> <!-- 会社名＋出庫現場 -->
+                <th>期間</th>     <!-- 開始～終了 -->
+                <th>詳細</th>     <!-- 詳細ボタン -->
+                <th>切替</th>     <!-- 状態/場所 -->
+                <th>削除</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for machine in machines %}
+            <tr>
+                <td class="fixed-cell">{{ machine.name or '' }}</td>
+                <td class="fixed-cell">{{ machine.manufacturer or '' }}</td>
+                <td class="fixed-cell">{{ machine.serial_number or '' }}</td>
+                <td class="fixed-cell">
+                    {{ machine.location or '' }}
+                    <span id="location-form-{{ machine.id }}" class="location-form" style="display:none; margin-left: 8px;">
+                        <form action="{{ url_for('update_location', machine_id=machine.id) }}" method="POST" style="display:inline;">
+                            <select name="location" id="location-{{ machine.id }}">
+                                <option value="本社" {% if machine.location == '本社' %}selected{% endif %}>本社</option>
+                                <option value="東舞鶴" {% if machine.location == '東舞鶴' %}selected{% endif %}>東舞鶴</option>
+                                <option value="中丹" {% if machine.location == '中丹' %}selected{% endif %}>中丹</option>
+                                <option value="丹後" {% if machine.location == '丹後' %}selected{% endif %}>丹後</option>
+                                <option value="高浜" {% if machine.location == '高浜' %}selected{% endif %}>高浜</option>
+                                <option value="敦賀" {% if machine.location == '敦賀' %}selected{% endif %}>敦賀</option>
+                                <option value="中丹西" {% if machine.location == '中丹西' %}selected{% endif %}>中丹西</option>
+                                <option value="京丹波" {% if machine.location == '京丹波' %}selected{% endif %}>京丹波</option>
+                                <option value="亀岡" {% if machine.location == '亀岡' %}selected{% endif %}>亀岡</option>
+                                <option value="京都" {% if machine.location == '京都' %}selected{% endif %}>京都</option>
+                                <option value="峰山" {% if machine.location == '峰山' %}selected{% endif %}>峰山</option>
+                            </select>
+
+                            <input type="submit" value="変更">
+                        </form>
+                    </span>
+                </td>
+                <td class="status-cell">
+                    {% if not machine.is_active %}
+                        出庫中
+                    {% else %}
+                        <span class="invisible-text">出庫中</span>
+                    {% endif %}
+                </td>
+
+            <!-- 機械リスト部分 -->
+            <td class="fixed-cell">
+                <div>
+                    <strong>{{ machine.shipment_location or '' }}</strong><br>
+                    <span style="font-size: 0.9em; color: #555;">
+                        {{ machine.shipment_site or '' }}
+                    </span>
+                </div>
+            </td>
+            <td class="fixed-cell">
+                {% if machine.shipment_start_date and machine.shipment_end_date %}
+                    {{ machine.shipment_start_date.strftime('%Y-%m-%d') }} ～ {{ machine.shipment_end_date.strftime('%Y-%m-%d') }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td class="fixed-cell">
+                <button type="button" onclick="showShipmentDetails({{ machine.id }})">
+                    詳細
+                </button>
+            </td>
+
+                <!-- ポップアップウィンドウ -->
+                <div id="shipment-details-popup-{{ machine.id }}" class="popup" style="display:none;">
+                    <div class="popup-content">
+                        <span class="close-btn" onclick="closePopup({{ machine.id }})">&times;</span>
+                        <h3>出庫先詳細</h3>
+                        <div class="popup-flex">
+                        <form action="{{ url_for('update_shipment_location', machine_id=machine.id) }}" method="POST">
+                            <div class="popup-content-none">
+                            <label for="company-name-{{ machine.id }}">会社名:</label>
+                            <input type="text" id="company-name-{{ machine.id }}" name="company_name" value="{{ machine.shipment_location or '' }}">
+                            </div>
+
+                            <div class="popup-content-none">
+                            <label for="shipment-site-{{ machine.id }}">出庫現場:</label>
+                            <input type="text" id="shipment-site-{{ machine.id }}" name="shipment_site" value="{{ machine.shipment_site or '' }}">
+                            </div>
+
+                            <div class="popup-content-none">
+                            <label for="start-date-{{ machine.id }}">開始期間:</label>
+                            <input type="date" id="start-date-{{ machine.id }}" name="start_date"
+                                value="{{ machine.shipment_start_date.strftime('%Y-%m-%d') if machine.shipment_start_date else '' }}">
+                            </div>
+
+                            <div class="popup-content-none">
+                            <label for="end-date-{{ machine.id }}">終了期間:</label>
+                            <input type="date" id="end-date-{{ machine.id }}" name="end_date"
+                                value="{{ machine.shipment_end_date.strftime('%Y-%m-%d') if machine.shipment_end_date else '' }}">
+                            </div>
+                            
+                            <div class="popup-content-flex">
+                            <button type="button" class="reset-btn" onclick="clearShipmentFields({{ machine.id }})">
+                                削除
+                            </button>
+                            <input type="submit" value="保存">
+                            </div>
+                        </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <td class="fixed-cell">
+                    <form action="{{ url_for('toggle_active', machine_id=machine.id) }}" method="POST" style="display:inline;">
+                        <input type="submit" value="状態変更">
+                    </form>
+
+                    <form onsubmit="event.preventDefault(); showLocationForm({{ machine.id }});" style="display:inline;">
+                        <input type="submit" value="場所変更">
+                    </form>
+                </td>
+
+                <td class="fixed-cell">
+                    <form action="{{ url_for('delete_machine', machine_id=machine.id) }}" method="POST" style="display:inline;">
+                        <input type="submit" value="削除" onclick="return confirm('本当に削除しますか？');">
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </h2>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const searchInput = document.getElementById("search-input");
+
+            searchInput.addEventListener("input", function () {
+                const filter = searchInput.value.toLowerCase();
+                const rows = document.querySelectorAll("table tbody tr");
+
+                rows.forEach(row => {
+                    const rowText = row.textContent.toLowerCase();
+                    if (rowText.includes(filter)) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                    }
+                });
+            });
+        });
+
+        // 場所変更フォームを表示するための関数
+        function showLocationForm(machineId) {
+            var form = document.getElementById('location-form-' + machineId);
+            form.style.display = (form.style.display === 'none' || form.style.display === '') ? 'inline' : 'none';
+        }
+
+        // CSV出力ボタンの処理
+        document.getElementById("csv-export-btn").addEventListener("click", function () {
+            const rows = document.querySelectorAll("table tbody tr");
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // UTF-8 BOM付きでExcel対応
+
+            // ヘッダー
+            const headers = Array.from(document.querySelectorAll("table thead th"))
+                                .map(th => `"${th.textContent.trim()}"`)
+                                .join(",");
+            csvContent += headers + "\n";
+
+            // 表示されている行だけ取得
+            rows.forEach(row => {
+                if (row.style.display !== "none") {
+                    const cols = Array.from(row.querySelectorAll("td")).map(td => {
+                        // tdから見えない文字（invisible-text）を除外
+                        const visibleText = Array.from(td.childNodes)
+                            .filter(node => node.nodeType === 3) // テキストノードのみ取得
+                            .map(node => node.textContent.trim())
+                            .join(" "); // 複数のテキストを1つに結合
+
+                        return `"${visibleText}"`; // CSVとして出力
+                    });
+                    csvContent += cols.join(",") + "\n";
+                }
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "machine_list.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    </script>
+
+    <script>
+    // 詳細ボタンをクリックしたときにポップアップを表示
+    function showShipmentDetails(machineId) {
+        const popup = document.getElementById('shipment-details-popup-' + machineId);
+        popup.style.display = 'flex'; // ポップアップを表示
+    }
+
+    // ポップアップを閉じる
+    function closePopup(machineId) {
+        const popup = document.getElementById('shipment-details-popup-' + machineId);
+        popup.style.display = 'none'; // ポップアップを非表示
+    }
+    </script>
+
+    <script>
+        function clearShipmentFields(machineId) {
+            document.getElementById('company-name-' + machineId).value = '';
+            document.getElementById('shipment-site-' + machineId).value = '';
+            document.getElementById('start-date-' + machineId).value = '';
+            document.getElementById('end-date-' + machineId).value = '';
+        }
+</script>
+
+</body>
+</html>

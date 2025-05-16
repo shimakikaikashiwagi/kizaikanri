@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>測量器登録画面</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='add_machine.css') }}">
+</head>
+<body>
+
+<div class="title">測量器登録画面</div>
+
+<form method="POST">
+    <div>
+        <label for="tool_type">測量器の種類</label>
+        <select name="tool_type" id="tool_type" required>
+            <option value="TS測量器">TS測量器</option>
+            <option value="GNSS測量器">GNSS測量器</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="tool_name">測量器名</label>
+        <input type="text" name="tool_name" id="tool_name" required>
+    </div>
+
+    <div>
+        <label for="manufacturer">メーカー</label>
+        <select name="manufacturer" id="manufacturer" required>
+            <option value="Topcon">Topcon</option>
+            <option value="Trimble">Trimble</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="management_number">管理番号</label>
+        <input type="text" name="management_number" id="management_number">
+    </div>
+
+    <div>
+        <label for="inspection_date">点検日</label>
+        <input type="date" name="inspection_date" id="inspection_date">
+    </div>
+
+    <div class="form-buttons">
+        <button type="submit" class="submit-button">登録</button>
+        <a href="{{ url_for('surveying_list') }}" class="back-button">戻る</a>
+    </div>
+</form>
+
+</body>
+</html>

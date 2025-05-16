@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログイン</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+</head>
+</head>
+<body>
+    <div class="login-container">
+        <h1>志摩機械 ICT機材管理表</h1>
+        <form method="POST" class="login-form">
+            <label for="username">ユーザー名:</label>
+            <input type="text" id="username" name="username" required>
+
+            <label for="password">パスワード:</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">ログイン</button>
+        </form>
+    </div>
+</body>
+</html>
