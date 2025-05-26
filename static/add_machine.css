@@ -87,3 +87,38 @@ form div > input[type="date"] {
     width: 100%;
     box-sizing: border-box;
 }
+
+.stock-input-wrapper {
+  display: flex;
+  align-items: center;
+  max-width: 200px;  /* 適宜調整 */
+  margin-top: 0.5rem;
+}
+
+.stock-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  margin: 0 0.3rem;
+  line-height: 1;
+  transition: background-color 0.3s;
+}
+
+.stock-btn:hover {
+  background-color: #0056b3;
+}
+
+.stock-input-wrapper input[type="number"] {
+  width: 60px;
+  text-align: center;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.3rem 0;
+  margin: 0 0.3rem;
+}

@@ -26,14 +26,26 @@
             <p>測量器</p>
         </div>
 
+        <!-- システム -->
+        <div class="button" id="button3" onclick="goToMachineList('system')">
+            <img src="static/surveying_tool_icon.png" alt="システム">
+            <p>システム</p>
+        </div>
+
         <!-- 部品 -->
-        <div class="button" id="button3" onclick="goToMachineList('parts')">
+        <div class="button" id="button4" onclick="goToMachineList('parts')">
             <img src="static/buhin_icon.png" alt="部品">
             <p>部品</p>
         </div>
 
         <!-- その他 -->
-        <div class="button" id="button4" onclick="goToMachineList('other')">
+        <div class="button" id="button6" onclick="goToMachineList('other')">
+            <img src="static/setting_icon.png" alt="その他">
+            <p>その他</p>
+        </div>
+
+                <!-- その他 -->
+        <div class="button" id="button6" onclick="goToMachineList('other')">
             <img src="static/setting_icon.png" alt="その他">
             <p>その他</p>
         </div>
@@ -43,10 +55,15 @@
 function goToMachineList(type) {
     if (type === "surveying") {
         window.location.href = "/surveying_list";
+    } else if (type === "system") {
+        window.location.href = "/system_list";
+    } else if (type === "parts") {
+        window.location.href = "/parts_list";
     } else {
         window.location.href = "/machine_list?type=" + type;
     }
 }
-    </script>
+
+</script>
 </body>
 </html>

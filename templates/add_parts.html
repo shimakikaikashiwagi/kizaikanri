@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>部品登録画面</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='add_machine.css') }}">
+</head>
+<body>
+
+<div class="title">部品登録画面</div>
+
+<form method="POST">
+    <div>
+        <label for="part_type">部品の種類</label>
+        <input type="text" name="part_type" id="part_type" required>
+    </div>
+
+    <div>
+        <label for="part_name">部品名</label>
+        <input type="text" name="part_name" id="part_name" required>
+    </div>
+
+    <div>
+        <label for="manufacturer">メーカー</label>
+        <select name="manufacturer" id="manufacturer" required>
+            <option value="Topcon">Topcon</option>
+            <option value="Trimble">Trimble</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="model_number">型番</label>
+        <input type="text" name="model_number" id="model_number">
+    </div>
+
+    <div>
+    <label for="new_stock">新品在庫数</label>
+    <div class="stock-input-wrapper">
+        <button type="button" class="stock-btn minus" onclick="changeStock(this, -1)">−</button>
+        <input type="number" name="new_stock" id="new_stock" min="0" value="0" readonly>
+        <button type="button" class="stock-btn plus" onclick="changeStock(this, 1)">＋</button>
+    </div>
+    </div>
+
+    <div>
+    <label for="used_stock">中古在庫数</label>
+    <div class="stock-input-wrapper">
+        <button type="button" class="stock-btn minus" onclick="changeStock(this, -1)">−</button>
+        <input type="number" name="used_stock" id="used_stock" min="0" value="0" readonly>
+        <button type="button" class="stock-btn plus" onclick="changeStock(this, 1)">＋</button>
+    </div>
+    </div>
+
+    <div>
+        <label for="remarks">備考</label>
+        <textarea name="remarks" id="remarks" rows="3" cols="40"></textarea>
+    </div>
+
+    <div class="form-buttons">
+        <button type="submit" class="submit-button">登録</button>
+        <a href="{{ url_for('parts_list') }}" class="back-button">戻る</a>
+    </div>
+</form>
+
+<script>
+    function changeStock(button, delta) {
+    const wrapper = button.closest('.stock-input-wrapper');
+    const input = wrapper.querySelector('input[type="number"]');
+    let currentValue = parseInt(input.value) || 0;
+    currentValue += delta;
+    if (currentValue < 0) currentValue = 0;
+    input.value = currentValue;
+    }
+</script>
+
+</body>
+</html>

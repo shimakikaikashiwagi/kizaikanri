@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>出庫先履歴</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='shipment_history.css') }}" />
+</head>
+<body>
+  <h1>出庫先履歴</h1>
+
+  {% if history %}
+  <table>
+    <thead>
+      <tr>
+        <th>会社名（出庫先）</th>
+        <th>出庫現場</th>
+        <th>開始日</th>
+        <th>終了日</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in history %}
+      <tr>
+        <td>{{ record.shipment_location }}</td>
+        <td>{{ record.shipment_site }}</td>
+        <td>{{ record.shipment_start_date.strftime('%Y-%m-%d') if record.shipment_start_date else '' }}</td>
+        <td>{{ record.shipment_end_date.strftime('%Y-%m-%d') if record.shipment_end_date else '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="no-history">履歴はまだありません。</p>
+  {% endif %}
+
+  <button onclick="window.close()" class="back-button">一覧に戻る</button>
+</body>
+</html>

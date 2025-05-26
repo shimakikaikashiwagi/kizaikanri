@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>部品一覧</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='parts_list.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}">
+</head>
+<body>
+
+<div class="sticky-wrapper">
+    <header class="header-bar">
+        <div class="left-group">
+            <a href="{{ url_for('index') }}" class="back-button">← 戻る</a>
+            <h1 class="page-title">部品一覧</h1>
+        </div>
+        <div class="right-group">
+            <a href="{{ url_for('index') }}">トップへ</a>
+        </div>
+    </header>
+
+    <h2>
+        <div class="about-container">
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="キーワード...">
+                <button id="search-button">検索</button>
+            </div>
+            <div class="action-buttons">
+                <a href="{{ url_for('add_parts') }}" class="add_button">新規登録</a>
+                <button class="csv-button" id="csv-export-btn">CSV出力</button>
+                <button class="edit_button" onclick="toggleDeleteColumn()">編集モード</button>
+            </div>
+        </div>
+    </h2>
+</div>
+
+<table id="printable-table">
+    <thead>
+        <tr>
+            <th>種類</th>
+            <th>部品名</th>
+            <th>メーカー</th>
+            <th>型番</th>
+            <th>新品在庫</th>
+            <th>中古在庫</th>
+            <th>備考</th>
+            <th class="delete-column hidden">管理</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for part in parts %}
+    <tr class="{{ 'shipped' if part.is_shipped else '' }}" data-part-id="{{ part.id }}">
+        <td class="fixed-cell">
+            <span class="display-text">{{ part.part_type }}</span>
+            <input class="edit-input" type="text" value="{{ part.part_type }}" style="display:none;">
+        </td>
+        <td class="fixed-cell">
+            <span class="display-text">{{ part.part_name }}</span>
+            <input class="edit-input" type="text" value="{{ part.part_name }}" style="display:none;">
+        </td>
+        <td class="fixed-cell">
+            <span class="display-text">{{ part.manufacturer or '' }}</span>
+            <input class="edit-input" type="text" value="{{ part.manufacturer or '' }}" style="display:none;">
+        </td>
+        <td class="fixed-cell">
+            <span class="display-text">{{ part.model_number or '' }}</span>
+            <input class="edit-input" type="text" value="{{ part.model_number or '' }}" style="display:none;">
+        </td>
+        <td class="fixed-cell">
+            <button class="stock-btn minus stock-control" onclick="changeStock(this, -1)" style="display:none;">−</button>
+            <span class="display-text">{{ '' if part.new_stock == 0 else part.new_stock ~ ' 個' }}</span>
+            <input class="edit-input" type="number" value="{{ part.new_stock or 0 }}" style="display:none;">
+            <button class="stock-btn plus stock-control" onclick="changeStock(this, 1)" style="display:none;">＋</button>
+        </td>
+        <td class="fixed-cell">
+            <button class="stock-btn minus stock-control" onclick="changeStock(this, -1)" style="display:none;">−</button>
+            <span class="display-text">{{ '' if (part.used_stock is defined and part.used_stock == 0) else (part.used_stock ~ ' 個') }}</span>
+            <input class="edit-input" type="number" value="{{ part.used_stock or 0 }}" style="display:none;">
+            <button class="stock-btn plus stock-control" onclick="changeStock(this, 1)" style="display:none;">＋</button>
+        </td>
+
+        <td class="fixed-cell">
+            <span class="display-text">{{ part.remarks or '' }}</span>
+            <input class="edit-input" type="text" value="{{ part.remarks or '' }}" style="display:none;">
+        </td>
+        <td class="fixed-cell delete-column">
+            <button type="button" onclick="toggleEditMode(this)">編集</button>
+            <form action="{{ url_for('delete_part', part_id=part.id) }}" method="POST">
+                <button type="submit" onclick="return confirm('本当に削除しますか？');">削除</button>
+            </form>
+        </td>
+    </tr>
+
+    {% endfor %}
+    </tbody>
+</table>
+
+<script src="{{ url_for('static', filename='parts_list.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>システム機材一覧</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='system_tool.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}">
+</head>
+<body>
+
+<div class="sticky-wrapper">
+    <header class="header-bar">
+        <div class="left-group">
+            <a href="{{ url_for('index') }}" class="back-button">← 戻る</a>
+            <h1 class="page-title">システム一覧</h1>
+        </div>
+        <div class="right-group">
+            <a href="{{ url_for('index') }}">トップへ</a>
+        </div>
+    </header>
+
+    <h2>
+        <div class="about-container">
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="キーワード...">
+                <button id="search-button">検索</button>
+                    <input type="checkbox" id="shippedOnlyCheckbox" onchange="filterTable()"> 出庫中
+            </div>
+            <div class="action-buttons">
+                <a href="{{ url_for('add_system_tool') }}" class="add_button">新規登録</a>
+                <button class="csv-button" id="csv-export-btn">CSV出力</button>
+                <button class="edit_button" onclick="toggleDeleteColumn()">編集モード</button>
+            </div>
+        </div>
+    </h2>
+</div>
+
+
+<table id="printable-table">
+    <thead>
+        <tr>
+            <th>種類</th>
+            <th>機材</th>
+            <th>メーカー</th>
+            <th>管理番号</th>
+            <th>状態</th>
+            <th>出庫先</th>
+            <th>期間</th>
+            <th>詳細</th>
+            <th>切替</th>
+            <th class="delete-column hidden">管理</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for system in system_systems %}
+    <tr data-system-id="{{ system.id }}" {% if not system.is_active and system.state != '予定' %} class="shipped"{% endif %}>
+        <td class="fixed-cell">
+            <span class="display-text">{{ system.tool_type or '' }}</span>
+            <input class="edit-input" type="text" value="{{ system.tool_type or '' }}" style="display:none;">
+        </td>
+        <td class="fixed-cell">
+            <span class="display-text">{{ system.name }}</span>
+            <input class="edit-input" type="text" value="{{ system.name }}" style="display:none;">
+        </td>
+        <td class="fixed-cell">
+            <span class="display-text">{{ system.manufacturer or '' }}</span>
+            <input class="edit-input" type="text" value="{{ system.manufacturer or '' }}" style="display:none;">
+        </td>
+        <td class="fixed-cell">
+            <span class="display-text">{{ system.serial_number or '' }}</span>
+            <input class="edit-input" type="text" value="{{ system.serial_number or '' }}" style="display:none;">
+        </td>
+        <td class="status-cell">
+            <span class="status-display" id="status-display-{{ system.id }}">
+                {% if system.state == '予定' %}
+                    予定
+                {% elif not system.is_active %}
+                    出庫中
+                {% else %}
+                    <!-- 空欄 -->
+                {% endif %}
+            </span>
+            <form action="{{ url_for('update_system_state', system_id=system.id) }}" method="POST" id="state-form-{{ system.id }}" class="hidden">
+                <select name="state" onchange="this.form.submit()">
+                    <option value="空白" {% if system.state == None and system.is_active %}selected{% endif %}></option>
+                    <option value="出庫中" {% if not system.is_active %}selected{% endif %}>出庫中</option>
+                    <option value="予定" {% if system.state == "予定" %}selected{% endif %}>予定</option>
+                </select>
+            </form>
+        </td>
+        <td class="fixed-cell">
+            <div>
+                <strong>{{ system.shipment_location or '' }}</strong><br>
+                <span style="font-size: 0.9em; color: #555;">{{ system.shipment_site or '' }}</span>
+            </div>
+        </td>
+        <td class="fixed-cell">
+            {% if system.shipment_start_date and system.shipment_end_date %}
+                {{ system.shipment_start_date.strftime('%Y-%m-%d') }} ～ {{ system.shipment_end_date.strftime('%Y-%m-%d') }}
+            {% else %}
+                -
+            {% endif %}
+        </td>
+        <td class="fixed-cell">
+            <button type="button" onclick="showShipmentDetails({{ system.id }})">詳細</button>
+        </td>
+        <td class="fixed-cell">
+            <button type="button" onclick="toggleStateForm({{ system.id }})">状態変更</button>
+            <!-- 点検変更ボタン 削除 -->
+        </td>
+        <td class="fixed-cell delete-column">
+            <button type="button" onclick="toggleEditMode(this)">編集</button>
+            <form action="{{ url_for('delete_system_tool', system_id=system.id) }}" method="POST">
+                <button type="submit" onclick="return confirm('本当に削除しますか？');">削除</button>
+            </form>
+        </td>
+    </tr>
+
+        <!-- 出庫先詳細ポップアップ -->
+        <div id="shipment-details-popup-{{ system.id }}" class="popup" style="display:none;">
+            <div class="popup-content">
+                <span class="close-btn" onclick="closePopup({{ system.id }})">&times;</span>
+                <h3>出庫先詳細</h3>
+                <div class="popup-flex">
+                    <form action="{{ url_for('update_system_shipment_location', system_id=system.id) }}" method="POST">
+                        <div class="popup-content-flex">
+                            <label for="company-name-{{ system.id }}">会社名:</label>
+                            <input type="text" id="company-name-{{ system.id }}" name="company_name" value="{{ system.shipment_location or '' }}">
+                        </div>
+                        <div class="popup-content-flex">
+                            <label for="shipment-site-{{ system.id }}">出庫現場:</label>
+                            <input type="text" id="shipment-site-{{ system.id }}" name="shipment_site" value="{{ system.shipment_site or '' }}">
+                        </div>
+                        <div class="popup-content-flex">
+                            <label for="start-date-{{ system.id }}">開始期間:</label>
+                            <input type="date" id="start-date-{{ system.id }}" name="start_date" value="{{ system.shipment_start_date.strftime('%Y-%m-%d') if system.shipment_start_date else '' }}">
+                        </div>
+                        <div class="popup-content-flex">
+                            <label for="end-date-{{ system.id }}">終了期間:</label>
+                            <input type="date" id="end-date-{{ system.id }}" name="end_date" value="{{ system.shipment_end_date.strftime('%Y-%m-%d') if system.shipment_end_date else '' }}">
+                        </div>
+                        <div class="popup-content-flex">
+                            <a href="{{ url_for('system_shipment_history', system_id=system.id) }}" class="history-button" target="_blank">過去ログ</a>
+                            <input type="submit" value="保存">
+                            <button type="button" class="reset-btn" onclick="clearShipmentFields({{ system.id }})">削除</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+<script src="{{ url_for('static', filename='system_list.js') }}"></script>
+</body>
+</html>

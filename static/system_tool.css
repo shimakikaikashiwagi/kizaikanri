@@ -1,0 +1,145 @@
+/* === 検索・アクションバー === */
+.search-container input[type="text"] {
+    padding: 10px 14px;
+    font-size: 16px;
+    border: 1px solid #bbb;
+    border-radius: 10px;
+    width: 260px;
+    transition: border-color 0.3s ease;
+}
+
+.search-container input[type="text"]:focus {
+    outline: none;
+    border-color: #2980b9;
+}
+
+.add_button {
+    background-color: #27ae60; /* 緑 */
+    color: white;
+}
+
+.add_button:hover {
+    background-color: #1e8e46;
+    transform: scale(1.05);
+}
+
+.csv-button,
+.print-button {
+    background-color: #2980b9; /* 青 */
+    color: white;
+}
+
+.csv-button:hover,
+.print-button:hover {
+    background-color: #1f6391;
+    transform: scale(1.05);
+}
+
+.edit_button {
+    background-color: #e67e22; /* オレンジ */
+    color: white;
+}
+
+.edit_button:hover {
+    background-color: #b36017;
+    transform: scale(1.05);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* === テーブル全体 === */
+th {
+    background-color: #68a5de;
+    color: white;
+    font-weight: 600;
+}
+
+/* === 列幅例（機材用） */
+th:nth-child(1), td:nth-child(1) { width: 160px; text-align: center; }
+th:nth-child(2), td:nth-child(2) { width: 120px; text-align: center; }
+th:nth-child(3), td:nth-child(3) { width: 110px; text-align: center; }
+th:nth-child(4), td:nth-child(4) { width: 140px; text-align: center; white-space: normal; }
+th:nth-child(5), td:nth-child(5) { width: 120px; text-align: center; }
+th:nth-child(6), td:nth-child(6) { width: 130px; text-align: center; }
+th:nth-child(7), td:nth-child(7) { width: 160px; text-align: center; }
+th:nth-child(8), td:nth-child(8) { width: 130px; text-align: center; }
+th:nth-child(9), td:nth-child(9),
+th:nth-child(10), td:nth-child(10) {text-align: center; }
+
+/* === ボタン共通 === */
+input[type="submit"],
+.delete-button,
+.history-button,
+.reset-btn {
+    background-color: #1f618d;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    height: 38px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    transition: background-color 0.3s ease;
+}
+
+input[type="submit"]:hover,
+.delete-button:hover,
+.history-button:hover,
+.reset-btn:hover {
+    background-color: #154360;
+}
+
+/* テーブル内のシンプルな枠ボタン */
+table input[type="submit"],
+table button {
+    display: inline-block;
+    padding: 7px 14px;
+    margin: 3px 3px;
+    border: 1px solid #68a5de;
+    background-color: #fff;
+    color: #555;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.25s ease, color 0.25s ease;
+    min-width: 90px;
+}
+
+table input[type="submit"]:hover,
+table button:hover {
+    background-color: #68a5de;
+    color: white;
+}
+
+/* === ポップアップ汎用 === */
+.edit-input {
+  width: 120px;  /* お好みで短く調整 */
+  padding: 4px 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+#search-button {
+  background-color: #68a5de;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  margin-left: 8px;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+#search-button:hover {
+  background-color: #3f8bd3;
+}
+
+#search-button:active {
+  background-color: #3f8bd3;
+}

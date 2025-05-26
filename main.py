@@ -2,8 +2,13 @@ from flask import Flask, render_template, redirect, url_for, request, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
-from models import db, ConstructionMachine, User, SurveyingTool
+from models import db, ConstructionMachine, User, SurveyingTool, SystemTool, Part
 from datetime import datetime
+from flask import request, jsonify
+from models import ShipmentHistory
+from models import SurveyingShipmentHistory
+from models import SystemShipmentHistory
+
 import os
 print(os.path.abspath("equipment.db"))
 
@@ -78,6 +83,22 @@ def surveying_list():
     ).all()
     return render_template('surveying_list.html', surveying_tools=surveying_tools)
 
+# システム一覧ページ
+@app.route('/system_list')
+def system_list():
+    system_systems = SystemTool.query.order_by(
+        SystemTool.tool_type.asc(),     # 種類で昇順（存在すれば）
+        SystemTool.name.asc(),          # 名前で昇順
+        SystemTool.serial_number.asc()  # 管理番号で昇順
+    ).all()
+    return render_template('system_list.html', system_systems=system_systems)
+
+# パーツ一覧ページ
+@app.route('/parts_list')
+def parts_list():
+    parts = Part.query.order_by(Part.id.desc()).all()
+    return render_template('parts_list.html', parts=parts)
+
 # 建設機械の新規登録
 @app.route('/construction_machines/add', methods=['GET', 'POST'])
 @login_required
@@ -141,7 +162,7 @@ def add_surveying_tool():
             manufacturer=manufacturer,
             serial_number=management_number,
             inspection_date=inspection_date,
-            is_active=is_active,
+            is_active=True,
             shipment_location=shipment_location,
             shipment_site=shipment_site,
             shipment_start_date=shipment_start_date,
@@ -160,7 +181,77 @@ def add_surveying_tool():
 
     return render_template('add_surveying_tool.html')
 
-# 状態切替（アクティブ・非アクティブ）
+# システム新規登録
+@app.route('/add_system_tool', methods=['GET', 'POST'])
+def add_system_tool():
+    if request.method == 'POST':
+        # フォームからデータを取得
+        system_type = request.form.get('system_type')
+        system_name = request.form.get('system_name')
+        manufacturer = request.form.get('manufacturer')
+        serial_number = request.form.get('serial_number')
+
+        # モデルに格納してDBに追加
+        new_system = SystemTool(
+        tool_type=system_type,
+        name=system_name,
+        manufacturer=manufacturer,
+        serial_number=serial_number,
+        is_active=True  # 初期状態は未使用
+    )
+
+        db.session.add(new_system)
+        db.session.commit()
+        flash('システム機器を登録しました。', 'success')
+        return redirect(url_for('system_list'))
+
+    return render_template('add_system_tool.html')
+
+# 部品新規登録
+@app.route('/add_parts', methods=['GET', 'POST'])
+@login_required
+def add_parts():
+    if request.method == 'POST':
+        part_type = request.form.get('part_type', '').strip()
+        part_name = request.form.get('part_name', '').strip()
+        manufacturer = request.form.get('manufacturer', '').strip()
+        model_number = request.form.get('model_number', '').strip()
+        new_stock_str = request.form.get('new_stock', '0').strip()
+        used_stock_str = request.form.get('used_stock', '0').strip()
+        remarks = request.form.get('remarks', '').strip()
+
+        try:
+            new_stock = int(new_stock_str)
+            used_stock = int(used_stock_str)
+            if new_stock < 0 or used_stock < 0:
+                raise ValueError("在庫数は0以上で入力してください。")
+        except ValueError:
+            flash('在庫数の入力に誤りがあります。0以上の整数を入力してください。')
+            return redirect(url_for('add_parts'))
+
+        new_part = Part(
+            part_type=part_type,
+            part_name=part_name,
+            manufacturer=manufacturer,
+            model_number=model_number,
+            new_stock=new_stock,
+            used_stock=used_stock,
+            remarks=remarks
+        )
+
+        try:
+            db.session.add(new_part)
+            db.session.commit()
+            flash('部品を登録しました。')
+            return redirect(url_for('parts_list'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'登録中にエラーが発生しました: {str(e)}')
+
+    return render_template('add_parts.html')
+
+
+# 状態切替（machine）
 @app.route('/machine/<int:machine_id>/toggle', methods=['POST'])
 @login_required
 def toggle_active(machine_id):
@@ -170,7 +261,8 @@ def toggle_active(machine_id):
     flash('状態が変更されました。')
     return redirect(url_for('machine_list', type='construction'))
 
-@app.route('/toggle_surveying_active/<int:tool_id>', methods=['POST'])
+# 状態切替（surveying）
+@app.route('/toggle_surveying_active/<int:tool_id>/toggle', methods=['POST'])
 @login_required
 def toggle_surveying_active(tool_id):
     tool = SurveyingTool.query.get_or_404(tool_id)
@@ -179,7 +271,7 @@ def toggle_surveying_active(tool_id):
     flash('測量器の状態を変更しました。')
     return redirect(url_for('surveying_list'))
 
-# 機械削除
+# 機械削除（machine）
 @app.route('/machine/<int:machine_id>/delete', methods=['POST'])
 @login_required
 def delete_machine(machine_id):
@@ -193,22 +285,49 @@ def delete_machine(machine_id):
         flash(f'削除中にエラーが発生しました: {str(e)}')
     return redirect(url_for('machine_list', type='construction'))
 
-# 場所変更
-@app.route('/update_location/<int:machine_id>', methods=['POST'])
+# 測量器削除
+@app.route('/delete_surveying_tool/<int:tool_id>', methods=['POST'])
 @login_required
-def update_location(machine_id):
-    new_location = request.form.get('location', '').strip()
-    machine = ConstructionMachine.query.get_or_404(machine_id)
+def delete_surveying_tool(tool_id):
+    tool = SurveyingTool.query.get_or_404(tool_id)
     try:
-        machine.location = new_location
+        db.session.delete(tool)
         db.session.commit()
-        flash('場所が変更されました。')
+        flash('測量器を削除しました。')
     except Exception as e:
         db.session.rollback()
-        flash(f'場所の更新中にエラーが発生しました: {str(e)}')
-    return redirect(url_for('machine_list', type='construction'))
+        flash(f'削除中にエラーが発生しました: {str(e)}')
+    return redirect(url_for('surveying_list'))
 
-# 出庫先詳細更新
+# システム削除
+@app.route('/delete_system_tool/<int:system_id>', methods=['POST'])
+@login_required
+def delete_system_tool(system_id):
+    system_tool = SystemTool.query.get_or_404(system_id)
+    try:
+        db.session.delete(system_tool)
+        db.session.commit()
+        flash('システム機器を削除しました。', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'削除中にエラーが発生しました: {str(e)}', 'danger')
+    return redirect(url_for('system_list'))
+
+# 部品削除
+@app.route('/delete_part/<int:part_id>', methods=['POST'])
+@login_required
+def delete_part(part_id):
+    part = Part.query.get_or_404(part_id)
+    try:
+        db.session.delete(part)
+        db.session.commit()
+        flash('部品を削除しました。', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'削除中にエラーが発生しました: {str(e)}', 'danger')
+    return redirect(url_for('parts_list'))
+
+# 機械出庫先詳細更新
 @app.route('/update_shipment_location/<int:machine_id>', methods=['POST'])
 @login_required
 def update_shipment_location(machine_id):
@@ -231,6 +350,16 @@ def update_shipment_location(machine_id):
         machine.shipment_start_date = start_date
         machine.shipment_end_date = end_date
 
+        # ShipmentHistoryに履歴追加
+        history = ShipmentHistory(
+            machine_id=machine_id,
+            shipment_location=company_name,
+            shipment_site=shipment_site,
+            shipment_start_date=start_date,
+            shipment_end_date=end_date,
+        )
+        db.session.add(history)
+
         db.session.commit()
         flash('出庫先情報を更新しました。')
     except Exception as e:
@@ -239,7 +368,7 @@ def update_shipment_location(machine_id):
 
     return redirect(url_for('machine_list', type='construction'))
 
-# 測量器：出庫先詳細更新
+# 測量器の出庫先詳細更新
 @app.route('/update_surveying_shipment_location/<int:tool_id>', methods=['POST'])
 @login_required
 def update_surveying_shipment_location(tool_id):
@@ -257,10 +386,21 @@ def update_surveying_shipment_location(tool_id):
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else None
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else None
 
+        # メインの出庫先情報更新
         tool.shipment_location = company_name
         tool.shipment_site = shipment_site
         tool.shipment_start_date = start_date
         tool.shipment_end_date = end_date
+
+        # 履歴テーブルに履歴追加
+        history = SurveyingShipmentHistory(
+            tool_id=tool_id,
+            shipment_location=company_name,
+            shipment_site=shipment_site,
+            shipment_start_date=start_date,
+            shipment_end_date=end_date,
+        )
+        db.session.add(history)
 
         db.session.commit()
         flash('測量器の出庫先情報を更新しました。')
@@ -270,32 +410,279 @@ def update_surveying_shipment_location(tool_id):
 
     return redirect(url_for('surveying_list'))
 
-# 測量器：点検日の更新
+# システム機器の出庫先詳細更新
+@app.route('/update_system_shipment_location/<int:system_id>', methods=['POST'])
+@login_required
+def update_system_shipment_location(system_id):
+    tool = SystemTool.query.get_or_404(system_id)
+
+    def to_none(value):
+        return value.strip() if value and value.strip() else None
+
+    company_name = to_none(request.form.get('company_name', ''))
+    shipment_site = to_none(request.form.get('shipment_site', ''))
+    start_date_str = request.form.get('start_date', '')
+    end_date_str = request.form.get('end_date', '')
+
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else None
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else None
+
+        # 出庫先情報を SystemTool に更新
+        tool.shipment_location = company_name
+        tool.shipment_site = shipment_site
+        tool.shipment_start_date = start_date
+        tool.shipment_end_date = end_date
+
+        # 履歴追加（SystemShipmentHistoryに保存）
+        history = SystemShipmentHistory(
+            system_id=system_id,
+            shipment_location=company_name,
+            shipment_site=shipment_site,
+            shipment_start_date=start_date,
+            shipment_end_date=end_date,
+        )
+        db.session.add(history)
+
+        db.session.commit()
+        flash('システム機器の出庫先情報を更新しました。', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'システム機器の出庫先更新中にエラーが発生しました: {str(e)}', 'danger')
+
+    return redirect(url_for('system_list'))
+
+# 測量器の点検日変更
 @app.route('/change_surveying_inspection/<int:tool_id>', methods=['POST'])
 def change_surveying_inspection(tool_id):
     tool = SurveyingTool.query.get_or_404(tool_id)
     inspection_date_str = request.form.get('inspection_date')
+
     if inspection_date_str:
         tool.inspection_date = datetime.strptime(inspection_date_str, '%Y-%m-%d').date()
-        db.session.commit()
+    else:
+        tool.inspection_date = None  # 空白ならNone（NULL）をセット
+
+    db.session.commit()
     return redirect(url_for('surveying_list'))
 
-
-# 測量器：削除
-@app.route('/delete_surveying_tool/<int:tool_id>', methods=['POST'])
+# 場所変更
+@app.route('/update_location/<int:machine_id>', methods=['POST'])
 @login_required
-def delete_surveying_tool(tool_id):
-    tool = SurveyingTool.query.get_or_404(tool_id)
-
+def update_location(machine_id):
+    new_location = request.form.get('location', '').strip()
+    machine = ConstructionMachine.query.get_or_404(machine_id)
     try:
-        db.session.delete(tool)
+        machine.location = new_location
         db.session.commit()
-        flash('測量器を削除しました。')
+        flash('場所が変更されました。')
     except Exception as e:
         db.session.rollback()
-        flash(f'削除中にエラーが発生しました: {str(e)}')
+        flash(f'場所の更新中にエラーが発生しました: {str(e)}')
+    return redirect(url_for('machine_list', type='construction'))
 
+
+# 機械編集モード
+@app.route('/update_machine/<int:machine_id>', methods=['POST'])
+def update_machine(machine_id):
+    data = request.get_json()
+    machine = ConstructionMachine.query.get_or_404(machine_id)
+
+    machine.name = data.get('name', machine.name)
+    machine.manufacturer = data.get('manufacturer', machine.manufacturer)
+    machine.serial_number = data.get('serial_number', machine.serial_number)
+
+    db.session.commit()
+    return jsonify({'status': 'success'})
+
+# 測量器編集モード
+@app.route('/update_surveying_tool/<int:tool_id>', methods=['POST'])
+def update_surveying_tool(tool_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
+    tool = SurveyingTool.query.get_or_404(tool_id)
+
+    tool.tool_type = data.get('tool_type', tool.tool_type)
+    tool.name = data.get('name', tool.name)
+    tool.manufacturer = data.get('manufacturer', tool.manufacturer)
+    tool.serial_number = data.get('serial_number', tool.serial_number)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success'})
+
+# システム編集モード
+@app.route('/update_system_tool/<int:system_id>', methods=['POST'])
+def update_system_tool(system_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
+    tool = SystemTool.query.get_or_404(system_id)
+
+    tool.tool_type = data.get('tool_type', tool.tool_type)
+    tool.name = data.get('name', tool.name)
+    tool.manufacturer = data.get('manufacturer', tool.manufacturer)
+    tool.serial_number = data.get('serial_number', tool.serial_number)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success'})
+
+# 部品編集モード
+@app.route('/update_part/<int:part_id>', methods=['POST'])
+@login_required
+def update_part(part_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
+    part = Part.query.get_or_404(part_id)
+
+    # 文字列系
+    part.part_name = data.get('part_name', part.part_name)
+    part.manufacturer = data.get('manufacturer', part.manufacturer)
+    part.model_number = data.get('model_number', part.model_number)
+    part.remarks = data.get('remarks', part.remarks)
+    part.is_shipped = data.get('is_shipped', part.is_shipped)
+
+    # 数値系は型チェックと範囲チェックを追加
+    try:
+        new_stock = int(data.get('new_stock', part.new_stock))
+        used_stock = int(data.get('used_stock', part.used_stock))
+        if new_stock < 0 or used_stock < 0:
+            raise ValueError('在庫数は0以上でなければなりません。')
+        part.new_stock = new_stock
+        part.used_stock = used_stock
+    except (ValueError, TypeError) as e:
+        return jsonify({'status': 'error', 'message': '在庫数は0以上の整数で入力してください。'}), 400
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success'})
+
+
+# 機械状態編集
+@app.route('/update_state/<int:machine_id>', methods=['POST'])
+def update_state(machine_id):
+    machine = ConstructionMachine.query.get(machine_id)
+    if not machine:
+        flash("機械が見つかりません。")
+        return redirect(url_for('machine_list', type='construction'))
+    
+    new_state = request.form.get('state')
+    if new_state == "空白":
+        machine.is_active = True
+        machine.state = None
+    elif new_state == "出庫中":
+        machine.is_active = False
+        machine.state = None
+    elif new_state == "予定":
+        machine.is_active = True  # ここを確認
+        machine.state = "予定"
+    else:
+        # 想定外の値
+        flash("無効な状態です。")
+    
+    db.session.commit()
+    return redirect(url_for('machine_list', type='construction'))
+
+# 測量器状態編集
+@app.route('/update_surveying_state/<int:tool_id>', methods=['POST'])
+def update_surveying_state(tool_id):
+    tool = SurveyingTool.query.get(tool_id)
+    if not tool:
+        flash("測量器が見つかりません。")
+        return redirect(url_for('surveying_list'))
+
+    new_state = request.form.get('state')
+    if new_state == "空白":
+        tool.is_active = True
+        tool.state = None
+    elif new_state == "出庫中":
+        tool.is_active = False
+        tool.state = None
+    elif new_state == "予定":
+        tool.is_active = True
+        tool.state = "予定"
+    else:
+        flash("無効な状態です。")
+
+    db.session.commit()
     return redirect(url_for('surveying_list'))
+
+# システム状態編集
+@app.route('/update_system_state/<int:system_id>', methods=['POST'])
+@login_required
+def update_system_state(system_id):
+    system_tool = SystemTool.query.get_or_404(system_id)
+
+    try:
+        state = request.form.get('state', '').strip()
+
+        # 状態ごとの処理
+        if state == '出庫中':
+            system_tool.is_active = False
+            system_tool.state = '出庫中'
+        elif state == '予定':
+            system_tool.is_active = True
+            system_tool.state = '予定'
+        else:
+            system_tool.is_active = True
+            system_tool.state = None  # 未設定や空白など
+
+        db.session.commit()
+        flash('システム機器の状態を更新しました。', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'状態更新中にエラーが発生しました: {str(e)}', 'danger')
+
+    return redirect(url_for('system_list'))
+
+# 機械過去ログ
+@app.route('/shipment_history/<int:machine_id>')
+def shipment_history(machine_id):
+    history_records = get_shipment_history(machine_id)  # 過去ログをDBから取得
+    return render_template('shipment_history.html', history=history_records)
+
+def get_shipment_history(machine_id):
+    return ShipmentHistory.query.filter_by(machine_id=machine_id).order_by(ShipmentHistory.updated_at.desc()).all()
+
+# 測量器過去ログ
+@app.route('/surveying_shipment_history/<int:tool_id>')
+def surveying_shipment_history(tool_id):
+    history_records = get_surveying_shipment_history(tool_id)
+    return render_template('surveying_shipment_history.html', history=history_records)
+
+def get_surveying_shipment_history(tool_id):
+    return SurveyingShipmentHistory.query.filter_by(tool_id=tool_id)\
+        .order_by(SurveyingShipmentHistory.updated_at.desc()).all()
+
+# システム過去ログ
+@app.route('/system_shipment_history/<int:system_id>')
+def system_shipment_history(system_id):
+    history_records = _get_system_shipment_history(system_id)
+    return render_template('system_shipment_history.html', history=history_records, system_id=system_id)
+
+def _get_system_shipment_history(system_id):
+    return SystemShipmentHistory.query.filter_by(system_id=system_id)\
+        .order_by(SystemShipmentHistory.updated_at.desc()).all()
+
 
 if __name__ == '__main__':
     with app.app_context():

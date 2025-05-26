@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>システム機器登録画面</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='add_machine.css') }}">
+</head>
+<body>
+
+<div class="title">システム機器登録画面</div>
+
+<form method="POST">
+    <div>
+        <label for="system_type">システム機器の種類</label>
+        <input type="text" name="system_type" id="system_type" required>
+    </div>
+
+    <div>
+        <label for="system_name">機器名</label>
+        <input type="text" name="system_name" id="system_name" required>
+    </div>
+
+    <div>
+        <label for="manufacturer">メーカー</label>
+        <select name="manufacturer" id="manufacturer" required>
+            <option value="Topcon">Topcon</option>
+            <option value="Trimble">Trimble</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="serial_number">管理番号</label>
+        <input type="text" name="serial_number" id="serial_number">
+    </div>
+
+    <div class="form-buttons">
+        <button type="submit" class="submit-button">登録</button>
+        <a href="{{ url_for('system_list') }}" class="back-button">戻る</a>
+    </div>
+</form>
+
+</body>
+</html>
