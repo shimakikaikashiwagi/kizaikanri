@@ -68,17 +68,16 @@
         </td>
         <td class="fixed-cell">
             <button class="stock-btn minus stock-control" onclick="changeStock(this, -1)" style="display:none;">−</button>
-            <span class="display-text">{{ '' if part.new_stock == 0 else part.new_stock ~ ' 個' }}</span>
+            <span class="display-text">{{ part.new_stock ~ ' 個' }}</span>
             <input class="edit-input" type="number" value="{{ part.new_stock or 0 }}" style="display:none;">
             <button class="stock-btn plus stock-control" onclick="changeStock(this, 1)" style="display:none;">＋</button>
         </td>
         <td class="fixed-cell">
             <button class="stock-btn minus stock-control" onclick="changeStock(this, -1)" style="display:none;">−</button>
-            <span class="display-text">{{ '' if (part.used_stock is defined and part.used_stock == 0) else (part.used_stock ~ ' 個') }}</span>
+            <span class="display-text">{{ part.used_stock ~ ' 個' }}</span>
             <input class="edit-input" type="number" value="{{ part.used_stock or 0 }}" style="display:none;">
             <button class="stock-btn plus stock-control" onclick="changeStock(this, 1)" style="display:none;">＋</button>
         </td>
-
         <td class="fixed-cell">
             <span class="display-text">{{ part.remarks or '' }}</span>
             <input class="edit-input" type="text" value="{{ part.remarks or '' }}" style="display:none;">

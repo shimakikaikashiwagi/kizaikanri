@@ -10,7 +10,7 @@
 
 <div class="title">測量器登録画面</div>
 
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
     <div>
         <label for="tool_type">測量器の種類</label>
         <select name="tool_type" id="tool_type" required>
@@ -40,6 +40,11 @@
     <div>
         <label for="inspection_date">点検日</label>
         <input type="date" name="inspection_date" id="inspection_date">
+    </div>
+
+        <div>
+        <label for="pdf_file">点検書PDFアップロード</label>
+        <input type="file" name="pdf_file" id="pdf_file" accept="application/pdf">
     </div>
 
     <div class="form-buttons">

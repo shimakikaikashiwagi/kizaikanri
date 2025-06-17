@@ -1,35 +1,32 @@
 document.addEventListener("DOMContentLoaded", function () {
 
-    document.getElementById("csv-export-btn").addEventListener("click", function () {
-        const rows = document.querySelectorAll("table tbody tr");
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+document.getElementById("csv-export-btn").addEventListener("click", function () {
+    const rows = document.querySelectorAll("table tbody tr");
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
 
-        const headers = Array.from(document.querySelectorAll("table thead th"))
-                            .map(th => `"${th.textContent.trim()}"`)
-                            .join(",");
-        csvContent += headers + "\n";
+    const headers = Array.from(document.querySelectorAll("table thead th"))
+                        .map(th => `"${th.textContent.trim()}"`)
+                        .join(",");
+    csvContent += headers + "\n";
 
-        rows.forEach(row => {
-            if (row.style.display !== "none") {
-                const cols = Array.from(row.querySelectorAll("td")).map(td => {
-                    const visibleText = Array.from(td.childNodes)
-                        .filter(node => node.nodeType === 3)
-                        .map(node => node.textContent.trim())
-                        .join(" ");
-                    return `"${visibleText}"`;
-                });
-                csvContent += cols.join(",") + "\n";
-            }
-        });
-
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "machine_list.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    rows.forEach(row => {
+        if (row.style.display !== "none") {
+            const cols = Array.from(row.querySelectorAll("td")).map(td => {
+                return `"${td.innerText.trim()}"`;
+            });
+            csvContent += cols.join(",") + "\n";
+        }
     });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "machine_list.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
+
 });
 
 function showLocationForm(machineId) {

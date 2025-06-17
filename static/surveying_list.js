@@ -81,19 +81,27 @@ function filterTable() {
     });
 }
 
-// 編集モード切り替え（管理列の表示・非表示）
 function toggleDeleteColumn() {
   const deleteCols = document.querySelectorAll('.delete-column');
+  let isEditing = false;
+  
   deleteCols.forEach(col => {
     if (col.style.display === 'none' || col.style.display === '') {
       col.style.display = 'table-cell'; // 表示
       col.classList.remove('hidden');
+      isEditing = true;
     } else {
       col.style.display = 'none'; // 非表示
       col.classList.add('hidden');
     }
   });
+
+  // PDFリンク表示切替
+  document.querySelectorAll('.pdf-link').forEach(el => {
+    el.style.display = isEditing ? 'inline' : 'none';
+  });
 }
+
 
 // 出庫先詳細ポップアップ表示
 function showShipmentDetails(toolId) {

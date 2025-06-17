@@ -129,4 +129,7 @@ table button:hover {
   background-color: #009073;
 }
 
-
+.pdf-icon{
+    padding-top: 10px;
+    padding-bottom: 0px;
+}

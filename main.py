@@ -8,16 +8,32 @@ from flask import request, jsonify
 from models import ShipmentHistory
 from models import SurveyingShipmentHistory
 from models import SystemShipmentHistory
+from flask_login import login_required
+from flask_cors import CORS
+from datetime import date
+from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
+from flask import make_response, jsonify
 
 import os
 print(os.path.abspath("equipment.db"))
 
 app = Flask(__name__)
-
+CORS(app)
 # アプリ設定
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///equipment.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = "your_secret_key"
+
+# アップロードフォルダ設定
+UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# ここに書く
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'pdf'
 
 # DB初期化とマイグレーション
 db.init_app(app)
@@ -43,6 +59,25 @@ def login():
             return redirect(url_for('index'))
         flash('ログインに失敗しました')
     return render_template('login.html')
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': '無効なリクエストです'}), 400
+
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'status': 'error', 'message': 'ユーザー名とパスワードを入力してください'}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(password):
+        login_user(user)  # Flask-Login を利用する場合（セッション用）
+        return jsonify({'status': 'success', 'message': 'ログイン成功', 'user_id': user.id})
+    else:
+        return jsonify({'status': 'error', 'message': 'ユーザー名またはパスワードが間違っています'}), 401
 
 # トップページ
 @app.route('/')
@@ -96,7 +131,11 @@ def system_list():
 # パーツ一覧ページ
 @app.route('/parts_list')
 def parts_list():
-    parts = Part.query.order_by(Part.id.desc()).all()
+    parts = Part.query.order_by(
+        Part.part_type.asc(),     # 種類で昇順（存在すれば）
+        Part.part_name.asc(),          # 名前で昇順
+        Part.model_number.asc()  # 管理番号で昇順
+    ).all()
     return render_template('parts_list.html', parts=parts)
 
 # 建設機械の新規登録
@@ -157,17 +196,28 @@ def add_surveying_tool():
 
         is_active = True if state_str == 'True' else False
 
+        # PDFファイルの処理
+        pdf_file = request.files.get('pdf_file')
+        pdf_filename = None
+        if pdf_file and pdf_file.filename != '':
+            if allowed_file(pdf_file.filename):
+                filename = secure_filename(pdf_file.filename)
+                pdf_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                pdf_file.save(pdf_filepath)
+                pdf_filename = filename
+            else:
+                flash('PDFファイルのみアップロード可能です。')
+                return redirect(url_for('add_surveying_tool'))
+        
         new_tool = SurveyingTool(
             name=tool_name,
             manufacturer=manufacturer,
             serial_number=management_number,
             inspection_date=inspection_date,
             is_active=True,
-            shipment_location=shipment_location,
-            shipment_site=shipment_site,
-            shipment_start_date=shipment_start_date,
-            shipment_end_date=shipment_end_date,
-            tool_type=tool_type 
+            tool_type=tool_type,
+            # PDFファイル名をDBの該当フィールドにセット
+            pdf_filename=pdf_filename
         )
 
         try:
@@ -221,8 +271,8 @@ def add_parts():
         remarks = request.form.get('remarks', '').strip()
 
         try:
-            new_stock = int(new_stock_str)
-            used_stock = int(used_stock_str)
+            new_stock = int(new_stock_str or '0')
+            used_stock = int(used_stock_str or '0')
             if new_stock < 0 or used_stock < 0:
                 raise ValueError("在庫数は0以上で入力してください。")
         except ValueError:
@@ -452,19 +502,42 @@ def update_system_shipment_location(system_id):
 
     return redirect(url_for('system_list'))
 
-# 測量器の点検日変更
 @app.route('/change_surveying_inspection/<int:tool_id>', methods=['POST'])
 def change_surveying_inspection(tool_id):
     tool = SurveyingTool.query.get_or_404(tool_id)
     inspection_date_str = request.form.get('inspection_date')
+    pdf_file = request.files.get('pdf_file')
 
+    # 点検日の更新
     if inspection_date_str:
-        tool.inspection_date = datetime.strptime(inspection_date_str, '%Y-%m-%d').date()
+        try:
+            tool.inspection_date = datetime.strptime(inspection_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            flash('日付の形式が正しくありません。')
+            return redirect(url_for('surveying_list'))
     else:
         tool.inspection_date = None  # 空白ならNone（NULL）をセット
 
-    db.session.commit()
+    # PDFファイルの差し替え処理
+    if pdf_file and pdf_file.filename != '':
+        if allowed_file(pdf_file.filename):
+            filename = secure_filename(pdf_file.filename)
+            pdf_filepath = os.path.join(UPLOAD_FOLDER, filename)
+            pdf_file.save(pdf_filepath)
+            tool.pdf_filename = filename
+        else:
+            flash('PDFファイルのみアップロード可能です。')
+            return redirect(url_for('surveying_list'))
+
+    try:
+        db.session.commit()
+        flash('点検日とPDFファイルを更新しました。')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'更新中にエラーが発生しました: {str(e)}')
+
     return redirect(url_for('surveying_list'))
+
 
 # 場所変更
 @app.route('/update_location/<int:machine_id>', methods=['POST'])
@@ -484,16 +557,26 @@ def update_location(machine_id):
 
 # 機械編集モード
 @app.route('/update_machine/<int:machine_id>', methods=['POST'])
+@login_required
 def update_machine(machine_id):
     data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
     machine = ConstructionMachine.query.get_or_404(machine_id)
 
     machine.name = data.get('name', machine.name)
     machine.manufacturer = data.get('manufacturer', machine.manufacturer)
     machine.serial_number = data.get('serial_number', machine.serial_number)
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
     return jsonify({'status': 'success'})
+
 
 # 測量器編集モード
 @app.route('/update_surveying_tool/<int:tool_id>', methods=['POST'])
@@ -550,6 +633,7 @@ def update_part(part_id):
     part = Part.query.get_or_404(part_id)
 
     # 文字列系
+    part.part_type = data.get('part_type', part.part_type)
     part.part_name = data.get('part_name', part.part_name)
     part.manufacturer = data.get('manufacturer', part.manufacturer)
     part.model_number = data.get('model_number', part.model_number)
@@ -682,6 +766,390 @@ def system_shipment_history(system_id):
 def _get_system_shipment_history(system_id):
     return SystemShipmentHistory.query.filter_by(system_id=system_id)\
         .order_by(SystemShipmentHistory.updated_at.desc()).all()
+
+from flask import jsonify
+from datetime import datetime
+
+# 機械過去ログAPI
+@app.route('/api/shipment_history/<int:machine_id>', methods=['GET'])
+def api_shipment_history(machine_id):
+    histories = ShipmentHistory.query.filter_by(machine_id=machine_id)\
+        .order_by(ShipmentHistory.updated_at.desc()).all()
+    result = [h.to_dict() for h in histories]
+    return jsonify(result)
+
+# 測量器過去ログAPI
+@app.route('/api/surveying_shipment_history/<int:tool_id>', methods=['GET'])
+def api_surveying_shipment_history(tool_id):
+    histories = SurveyingShipmentHistory.query.filter_by(tool_id=tool_id)\
+        .order_by(SurveyingShipmentHistory.updated_at.desc()).all()
+    result = [h.to_dict() for h in histories]
+    return jsonify(result)
+
+# システム過去ログAPI
+@app.route('/api/system_shipment_history/<int:system_id>', methods=['GET'])
+def api_system_shipment_history(system_id):
+    histories = SystemShipmentHistory.query.filter_by(system_id=system_id)\
+        .order_by(SystemShipmentHistory.updated_at.desc()).all()
+    result = [h.to_dict() for h in histories]
+    return jsonify(result)
+
+from flask import jsonify, request
+from flask_login import login_required
+
+# === ConstructionMachine (機械) ===
+
+@app.route('/api/machines', methods=['GET'])
+def api_get_machines():
+    machines = ConstructionMachine.query.all()
+    result = [m.to_dict() for m in machines]
+    response = make_response(jsonify(result))
+    response.headers['Content-Type'] = 'application/json; charset=utf-8'
+    return response
+
+@app.route('/api/machines/<int:machine_id>', methods=['GET'])
+def api_get_machine(machine_id):
+    machine = ConstructionMachine.query.get_or_404(machine_id)
+    return jsonify(machine.to_dict())
+
+@app.route('/api/machines', methods=['POST'])
+@login_required
+def api_create_machine():
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+    machine = ConstructionMachine(
+        name=data.get('name'),
+        manufacturer=data.get('manufacturer'),
+        serial_number=data.get('serial_number')
+    )
+    try:
+        db.session.add(machine)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'id': machine.id}), 201
+
+@app.route('/api/machines/<int:machine_id>', methods=['PUT'])
+@login_required
+def api_update_machine(machine_id):
+    machine = ConstructionMachine.query.get_or_404(machine_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
+    machine.name = data.get('name', machine.name)
+    machine.manufacturer = data.get('manufacturer', machine.manufacturer)
+    machine.serial_number = data.get('serial_number', machine.serial_number)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'id': machine.id})
+
+@app.route('/api/machines/<int:machine_id>', methods=['DELETE'])
+@login_required
+def api_delete_machine(machine_id):
+    machine = ConstructionMachine.query.get_or_404(machine_id)
+    try:
+        db.session.delete(machine)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'機械ID {machine_id} を削除しました。'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+@app.route('/api/machines/updated-since', methods=['GET'])
+def api_get_machines_updated_since():
+    timestamp_str = request.args.get('timestamp')
+    if not timestamp_str:
+        return jsonify({'status': 'error', 'message': 'timestamp query parameter is required'}), 400
+
+    try:
+        timestamp = datetime.fromisoformat(timestamp_str)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid timestamp format'}), 400
+
+    updated_machines = ConstructionMachine.query.filter(ConstructionMachine.updated_at > timestamp).all()
+    result = [m.to_dict() for m in updated_machines]
+    return jsonify(result)
+    
+# === SurveyingTool (測量器) ===
+
+@app.route('/api/surveying_tools', methods=['GET'])
+def api_get_surveying_tools():
+    tools = SurveyingTool.query.all()
+    result = [t.to_dict() for t in tools]
+    return jsonify(result)
+
+@app.route('/api/surveying_tools/<int:tool_id>', methods=['GET'])
+def api_get_surveying_tool(tool_id):
+    tool = SurveyingTool.query.get_or_404(tool_id)
+    return jsonify(tool.to_dict())
+
+@app.route('/api/surveying_tools', methods=['POST'])
+@login_required
+def api_create_surveying_tool():
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+    if not data.get('name'):
+        return jsonify({'status': 'error', 'message': '名称は必須です。'}), 400
+
+    tool = SurveyingTool(
+        tool_type=data.get('tool_type'),
+        name=data.get('name'),
+        manufacturer=data.get('manufacturer'),
+        serial_number=data.get('serial_number')
+    )
+    try:
+        db.session.add(tool)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'id': tool.id}), 201
+
+@app.route('/api/surveying_tools/<int:tool_id>', methods=['PUT'])
+@login_required
+def api_update_surveying_tool(tool_id):
+    tool = SurveyingTool.query.get_or_404(tool_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
+    tool.tool_type = data.get('tool_type', tool.tool_type)
+    tool.name = data.get('name', tool.name)
+    tool.manufacturer = data.get('manufacturer', tool.manufacturer)
+    tool.serial_number = data.get('serial_number', tool.serial_number)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'id': tool.id})
+
+@app.route('/api/surveying_tools/<int:tool_id>', methods=['DELETE'])
+@login_required
+def api_delete_surveying_tool(tool_id):
+    tool = SurveyingTool.query.get_or_404(tool_id)
+    try:
+        db.session.delete(tool)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'測量器ID {tool_id} を削除しました。'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+@app.route('/api/surveying-tools/updated-since', methods=['GET'])
+def api_get_surveying_tools_updated_since():
+    timestamp_str = request.args.get('timestamp')
+    if not timestamp_str:
+        return jsonify({'status': 'error', 'message': 'timestamp query parameter is required'}), 400
+
+    try:
+        timestamp = datetime.fromisoformat(timestamp_str)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid timestamp format'}), 400
+
+    updated_tools = SurveyingTool.query.filter(SurveyingTool.updated_at > timestamp).all()
+    result = [tool.to_dict() for tool in updated_tools]
+    return jsonify(result)
+
+# === SystemTool (システム機器) ===
+
+@app.route('/api/system_tools', methods=['GET'])
+def api_get_system_tools():
+    systems = SystemTool.query.all()
+    result = [s.to_dict() for s in systems]
+    return jsonify(result)
+
+@app.route('/api/system_tools/<int:system_id>', methods=['GET'])
+def api_get_system_tool(system_id):
+    system_tool = SystemTool.query.get_or_404(system_id)
+    return jsonify(system_tool.to_dict())
+
+@app.route('/api/system_tools', methods=['POST'])
+@login_required
+def api_create_system_tool():
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+    system_tool = SystemTool(
+        tool_type=data.get('tool_type'),
+        name=data.get('name'),
+        manufacturer=data.get('manufacturer'),
+        serial_number=data.get('serial_number')
+    )
+    try:
+        db.session.add(system_tool)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'id': system_tool.id}), 201
+
+@app.route('/api/system_tools/<int:system_id>', methods=['PUT'])
+@login_required
+def api_update_system_tool(system_id):
+    system_tool = SystemTool.query.get_or_404(system_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
+    system_tool.tool_type = data.get('tool_type', system_tool.tool_type)
+    system_tool.name = data.get('name', system_tool.name)
+    system_tool.manufacturer = data.get('manufacturer', system_tool.manufacturer)
+    system_tool.serial_number = data.get('serial_number', system_tool.serial_number)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'id': system_tool.id})
+
+@app.route('/api/system_tools/<int:system_id>', methods=['DELETE'])
+@login_required
+def api_delete_system_tool(system_id):
+    system_tool = SystemTool.query.get_or_404(system_id)
+    try:
+        db.session.delete(system_tool)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'システム機器ID {system_id} を削除しました。'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/system-tools/updated-since', methods=['GET'])
+def api_get_system_tools_updated_since():
+    timestamp_str = request.args.get('timestamp')
+    if not timestamp_str:
+        return jsonify({'status': 'error', 'message': 'timestamp query parameter is required'}), 400
+
+    try:
+        timestamp = datetime.fromisoformat(timestamp_str)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid timestamp format'}), 400
+
+    updated_tools = SystemTool.query.filter(SystemTool.updated_at > timestamp).all()
+    result = [tool.to_dict() for tool in updated_tools]
+    return jsonify(result)
+
+# === Part (部品) ===
+
+@app.route('/api/parts', methods=['GET'])
+def api_get_parts():
+    parts = Part.query.all()
+    result = [p.to_dict() for p in parts]
+    return jsonify(result)
+
+@app.route('/api/parts/<int:part_id>', methods=['GET'])
+def api_get_part(part_id):
+    part = Part.query.get_or_404(part_id)
+    return jsonify(part.to_dict())
+
+@app.route('/api/parts', methods=['POST'])
+@login_required
+def api_create_part():
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
+    try:
+        new_stock = int(data.get('new_stock', 0))
+        used_stock = int(data.get('used_stock', 0))
+        if new_stock < 0 or used_stock < 0:
+            return jsonify({'status': 'error', 'message': '在庫数は0以上でなければなりません。'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': '在庫数は整数で入力してください。'}), 400
+
+    part = Part(
+        part_name=data.get('part_name'),
+        manufacturer=data.get('manufacturer'),
+        model_number=data.get('model_number'),
+        remarks=data.get('remarks'),
+        is_shipped=data.get('is_shipped', False),
+        new_stock=new_stock,
+        used_stock=used_stock,
+    )
+    try:
+        db.session.add(part)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'id': part.id}), 201
+
+@app.route('/api/parts/<int:part_id>', methods=['PUT'])
+@login_required
+def api_update_part(part_id):
+    part = Part.query.get_or_404(part_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
+
+    part.part_name = data.get('part_name', part.part_name)
+    part.manufacturer = data.get('manufacturer', part.manufacturer)
+    part.model_number = data.get('model_number', part.model_number)
+    part.remarks = data.get('remarks', part.remarks)
+    part.is_shipped = data.get('is_shipped', part.is_shipped)
+
+    try:
+        new_stock = int(data.get('new_stock', part.new_stock))
+        used_stock = int(data.get('used_stock', part.used_stock))
+        if new_stock < 0 or used_stock < 0:
+            return jsonify({'status': 'error', 'message': '在庫数は0以上でなければなりません。'}), 400
+        part.new_stock = new_stock
+        part.used_stock = used_stock
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': '在庫数は整数で入力してください。'}), 400
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'id': part.id})
+
+@app.route('/api/parts/<int:part_id>', methods=['DELETE'])
+@login_required
+def api_delete_part(part_id):
+    part = Part.query.get_or_404(part_id)
+    try:
+        db.session.delete(part)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'部品ID {part_id} を削除しました。'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/parts/updated-since', methods=['GET'])
+def api_get_parts_updated_since():
+    timestamp_str = request.args.get('timestamp')
+    if not timestamp_str:
+        return jsonify({'status': 'error', 'message': 'timestamp query parameter is required'}), 400
+
+    try:
+        timestamp = datetime.fromisoformat(timestamp_str)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid timestamp format'}), 400
+
+    updated_parts = Part.query.filter(Part.updated_at > timestamp).all()
+    result = [part.to_dict() for part in updated_parts]
+    return jsonify(result)
 
 
 if __name__ == '__main__':

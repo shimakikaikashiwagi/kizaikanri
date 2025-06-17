@@ -5,6 +5,7 @@
     <title>測量器一覧</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='surveying_tool.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-pbJX0XEv9Fw1Ej6Rmjl5FY7Q5r4dxi9PC7Nle5tGrC2nYQ9jr4a9h8H8f0Z7+z3B+yo/8GkXvxG+S29Wv66/rw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
 
@@ -70,8 +71,20 @@
             <span class="display-text">{{ tool.serial_number or '' }}</span>
             <input class="edit-input" type="text" value="{{ tool.serial_number or '' }}" style="display:none;">
             </td>
+            <td class="fixed-cell">
+                {{ tool.inspection_date.strftime('%Y-%m-%d') if tool.inspection_date else '-' }}
+                <br>
+                <span class="pdf-link" style="display: none;">
+                    {% if tool.pdf_filename %}
+                    <a href="{{ url_for('static', filename='uploads/' + tool.pdf_filename) }}" target="_blank" rel="noopener noreferrer" title="PDFを開く" class="pdf-icon">
+                        <img src="static/pdf_icon.JPG" alt="PDF" style="width: 20px; height: auto;">
+                    </a>
+                    {% else %}
+                    -
+                    {% endif %}
+                </span>
+            </td>
 
-            <td class="fixed-cell">{{ tool.inspection_date.strftime('%Y-%m-%d') if tool.inspection_date else '-' }}</td>
             <td class="status-cell">
                 <span class="status-display" id="status-display-{{ tool.id }}">
                     {% if tool.state == '予定' %}
@@ -153,17 +166,23 @@
 
         <!-- 点検日変更ポップアップ -->
         <div id="inspection-popup-{{ tool.id }}" class="popup" style="display:none;">
-            <div class="popup-content">
-                <span class="close-btn" onclick="closeInspectionPopup({{ tool.id }})">&times;</span>
-                <h3>点検日変更</h3>
-                <form action="{{ url_for('change_surveying_inspection', tool_id=tool.id) }}" method="POST">
-                    <label for="inspection-date-{{ tool.id }}">新しい点検日:</label>
-                    <input type="date" id="inspection-date-{{ tool.id }}" name="inspection_date">
-                    <div style="margin-top:10px;">
-                        <input type="submit" value="保存">
-                    </div>
-                </form>
+        <div class="popup-content">
+            <span class="close-btn" onclick="closeInspectionPopup({{ tool.id }})">&times;</span>
+            <h3>点検日変更</h3>
+            <form action="{{ url_for('change_surveying_inspection', tool_id=tool.id) }}" method="POST" enctype="multipart/form-data">
+            <label for="inspection-date-{{ tool.id }}">新しい点検日:</label>
+            <input type="date" id="inspection-date-{{ tool.id }}" name="inspection_date" value="{{ tool.inspection_date.strftime('%Y-%m-%d') if tool.inspection_date else '' }}">
+            
+            <br><br>
+            
+            <label for="pdf-file-{{ tool.id }}">点検PDF(変更):</label>
+            <input type="file" id="pdf-file-{{ tool.id }}" name="pdf_file" accept="application/pdf">
+            
+            <div style="margin-top:10px;">
+                <input type="submit" value="保存">
             </div>
+            </form>
+        </div>
         </div>
         {% endfor %}
     </tbody>
