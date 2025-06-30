@@ -15,6 +15,7 @@ from datetime import datetime
 import os
 from werkzeug.utils import secure_filename
 from flask import make_response, jsonify
+from flask_sqlalchemy import SQLAlchemy
 
 import os
 print(os.path.abspath("equipment.db"))
@@ -22,8 +23,8 @@ print(os.path.abspath("equipment.db"))
 app = Flask(__name__)
 CORS(app)
 # アプリ設定
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///equipment.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["SECRET_KEY"] = "your_secret_key"
 
 # アップロードフォルダ設定
