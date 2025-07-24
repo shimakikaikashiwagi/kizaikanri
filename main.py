@@ -22,6 +22,7 @@ print(os.path.abspath("equipment.db"))
 
 app = Flask(__name__)
 CORS(app)
+
 # アプリ設定
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -1153,14 +1154,26 @@ def api_get_parts_updated_since():
     return jsonify(result)
 
 
-if __name__ == '__main__':
+def init_admin_user():
     with app.app_context():
         db.create_all()
-        # adminユーザー初期作成
-        if not User.query.filter_by(username='admin').first():
-            user = User(username='admin')
-            user.set_password('password')
-            db.session.add(user)
-            db.session.commit()
 
+        user = User.query.filter_by(username='admin').first()
+        if user:
+            user.set_password('shima0652')
+            print("既存のadminパスワードを更新しました。")
+        else:
+            user = User(username='admin')
+            user.set_password('shima0652')
+            db.session.add(user)
+            print("adminユーザーを新規作成しました。")
+        db.session.commit()
+
+        admin_user = User.query.filter_by(username='admin').first()
+        print(f"adminのパスワードハッシュ: {admin_user.password}")
+
+# Flaskアプリ起動時に呼ぶ
+init_admin_user()
+
+if __name__ == '__main__':
     app.run(debug=True)
